@@ -1,0 +1,18 @@
+id = "4d"
+name = "4D"
+description = "4D (4th Dimension): syntax highlighting, outline, and code intelligence via 4D's tool4d language server. Nothing else to install."
+version = "0.2.0"
+schema_version = 1
+authors = ["kyran"]
+repository = "https://github.com/D34thm0u53/4D-LSP"
+
+[grammars.fourd]
+# The grammar lives at the root of this repository (grammar.js, src/parser.c).
+# After changing grammar.js: `npx tree-sitter generate`, commit, push, then set `rev`
+# to the pushed commit.
+repository = "https://github.com/D34thm0u53/4D-LSP"
+rev = "b0595c13d16cf95bad64a4ed5c9852b77c6f99fc"
+
+[language_servers.4d-analyzer]
+name = "4D Analyzer"
+languages = ["4D"]

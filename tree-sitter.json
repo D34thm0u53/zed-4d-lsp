@@ -1,0 +1,19 @@
+{
+  "grammars": [
+    {
+      "name": "4D",
+      "camelcase": "4D",
+      "scope": "source.4d",
+      "path": ".",
+      "file-types": ["4dm"],
+      "injection-regex": "^4d$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Tree-sitter grammar for the 4D programming language",
+    "authors": [{ "name": "D34thm0u53" }]
+  },
+  "bindings": { "c": true, "node": false, "rust": false, "go": false, "python": false, "swift": false }
+}

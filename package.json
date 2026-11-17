@@ -1,0 +1,10 @@
+{
+  "name": "tree-sitter-4d",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for the 4D programming language (.4dm)",
+  "license": "MIT",
+  "keywords": ["parser", "tree-sitter", "4d"],
+  "scripts": { "generate": "tree-sitter generate", "test": "tree-sitter test" },
+  "devDependencies": { "tree-sitter-cli": "^0.25.0" },
+  "tree-sitter": [{ "scope": "source.4d", "file-types": ["4dm"] }]
+}
