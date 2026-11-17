@@ -6,8 +6,10 @@ One extension, nothing else to install:
 - **Language server** (completion, hover, go to definition, signature help, diagnostics, semantic tokens)
   powered by 4D's own `tool4d`.
 
-On first use the extension downloads tool4d (about 25 MB) from 4D's servers into its own folder, using Zed's
-bundled Node.js. It needs no system tools (`ar`, `tar`, `curl`, `apt`, …) on Linux, and on Linux it carries
+Works on **Linux (x86_64), macOS (Apple Silicon and Intel) and Windows**. On first use the extension downloads
+tool4d (about 25 MB) from 4D's servers into its own folder, using Zed's bundled Node.js. On Linux it needs no
+system tools (`ar`, `tar`, `curl`, `apt`, …); on macOS and Windows it uses the OS's built-in `tar`
+(`/usr/bin/tar`, `%SystemRoot%\System32\tar.exe`, Windows 10 1803+) to unpack the archive. On Linux it carries
 the shared libraries tool4d needs (libc++, libc++abi, libunwind, libfreeimage stub), using them only when the system
 lacks its own. Open a folder that contains a 4D project (`Project/*.4DProject`).
 
@@ -22,7 +24,8 @@ lacks its own. Open a folder that contains a 4D project (`Project/*.4DProject`).
 "languages": { "4D": { "semantic_tokens": "combined" } }
 ```
 `version`: `latest`, `21`, `21R`, `21R3`. A tool4d already on `PATH`, in `/opt/tool4d`, `/Applications/tool4d.app`, or
-downloaded by the VS Code 4D-Analyzer extension is reused automatically.
+downloaded by the VS Code 4D-Analyzer extension is reused automatically. `binary.path` may point to the executable,
+to the folder containing it, or (macOS) to `tool4d.app`. On Windows use forward slashes or escaped backslashes in JSON.
 
 ## Layout
 `languages/4d` queries · `src/lib.rs` Zed extension · `bridge/bridge.js` stdio↔TCP bridge + tool4d installer ·

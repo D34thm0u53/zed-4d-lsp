@@ -185,6 +185,42 @@ function run(cmd, args, cwd) {
   }
 }
 
+/**
+ * The `tar` to use for .tar.xz archives. It must understand xz, which only bsdtar
+ * (macOS, Windows 10+) and GNU tar with xz installed do. On Windows a bare `tar` may
+ * resolve to GNU tar from Git for Windows, so use the OS-provided bsdtar by absolute path.
+ */
+function systemTar() {
+  if (process.platform === "win32") {
+    const root = process.env.SystemRoot || process.env.windir || "C:\\Windows";
+    const bsdtar = path.join(root, "System32", "tar.exe");
+    if (isFile(bsdtar)) return bsdtar;
+  } else if (process.platform === "darwin" && isFile("/usr/bin/tar")) {
+    return "/usr/bin/tar";
+  }
+  return "tar";
+}
+
+/** Extract `archive` into `dest` with the system tar. */
+function tarExtract(archive, dest, flag) {
+  try {
+    // Run inside the archive's folder with a relative name: GNU tar treats "C:\\..." as host:path.
+    run(systemTar(), [flag, path.basename(archive), "-C", dest], path.dirname(archive));
+  } catch (e) {
+    throw new Error(`${e.message}\nCould not unpack tool4d. Install tool4d manually and set lsp.4d-analyzer.binary.path.`);
+  }
+}
+
+/** rename() that retries: Windows antivirus/indexers briefly lock freshly written trees. */
+function renameRetry(from, to) {
+  for (let i = 0; ; i++) {
+    try { return fs.renameSync(from, to); } catch (e) {
+      if (i >= 8 || !["EPERM", "EBUSY", "EACCES"].includes(e.code)) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250 * (i + 1));
+    }
+  }
+}
+
 // ---- minimal `ar` + `tar` readers so Linux needs no external tools ----------
 function readAr(buf) {
   if (buf.slice(0, 8).toString() !== "!<arch>\n") throw new Error("not an ar archive");
@@ -274,14 +310,14 @@ function extract(archive, dest) {
       // .xz (or zstd on an old Node): hand over to the system tar.
       const f = path.join(dest, entry);
       fs.writeFileSync(f, files[entry]);
-      run("tar", ["-xf", f], dest);
+      tarExtract(f, dest, "-xf");
       fs.rmSync(f, { force: true });
       return;
     }
     untar(tar, dest);
   } else {
     // macOS and Windows ship bsdtar, which reads .tar.xz natively.
-    run("tar", ["-xJf", archive], dest);
+    tarExtract(archive, dest, "-xJf");
   }
 }
 
@@ -331,7 +367,7 @@ async function ensureTool4d(opts) {
   extract(archive, stage);
   fs.rmSync(archive, { force: true });
   fs.rmSync(installDir, { recursive: true, force: true });
-  fs.renameSync(stage, installDir);
+  renameRetry(stage, installDir);
   fs.rmSync(tmp, { recursive: true, force: true });
   const bin = findBinary(installDir, 6);
   if (!bin) throw new Error("tool4d executable not found after extraction");
@@ -441,7 +477,14 @@ async function main() {
   });
 }
 
-main().catch((e) => {
-  log("fatal:", e.message);
-  shutdown(1);
-});
+if (require.main === module) {
+  main().catch((e) => {
+    log("fatal:", e.message);
+    shutdown(1);
+  });
+} else {
+  module.exports = {
+    parseArgs, releaseFolder, urlFor, platformSuffix, resolveExplicit,
+    findBinary, readAr, untar, extract, systemTar,
+  };
+}

@@ -1,0 +1,79 @@
+name: CI
+
+# Regression tests for the extension on Linux, macOS and Windows.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Offline unit tests of the bridge (archive extraction, path handling, version/URL mapping).
+  bridge-unit:
+    name: bridge unit (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run test:bridge
+
+  # Real end-to-end: the bridge downloads the real tool4d for this OS and completes an LSP session.
+  # Needs network access to 4D's download servers. macos-15-intel covers the x86_64 macOS build.
+  bridge-e2e:
+    name: bridge e2e (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run test:e2e
+
+  # The Zed extension itself must compile to wasm on every OS (include_bytes! paths, lockfile).
+  extension-build:
+    name: extension build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup target add wasm32-wasip2
+      - run: cargo build --release --target wasm32-wasip2 --locked
+
+  # The committed parser must match grammar.js, and the sample files must parse without errors.
+  grammar:
+    name: grammar
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx tree-sitter generate
+      - name: Generated parser is up to date
+        run: git diff --exit-code -- src
+      - name: Sample files parse without errors
+        run: npx tree-sitter parse test/sample.4dm test/class.4dm --quiet

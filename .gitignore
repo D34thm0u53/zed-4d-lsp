@@ -2,3 +2,4 @@ target/
 *.wasm
 grammars/
 node_modules/
+compat/active/

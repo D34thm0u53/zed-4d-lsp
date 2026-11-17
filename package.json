@@ -4,7 +4,12 @@
   "description": "Tree-sitter grammar for the 4D programming language (.4dm)",
   "license": "MIT",
   "keywords": ["parser", "tree-sitter", "4d"],
-  "scripts": { "generate": "tree-sitter generate", "test": "tree-sitter test" },
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test",
+    "test:bridge": "node --test test/bridge/unit.test.js",
+    "test:e2e": "node --test test/bridge/e2e.test.js"
+  },
   "devDependencies": { "tree-sitter-cli": "^0.25.0" },
   "tree-sitter": [{ "scope": "source.4d", "file-types": ["4dm"] }]
 }
