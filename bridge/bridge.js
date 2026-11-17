@@ -133,16 +133,31 @@ function urlFor(folder, channel) {
 }
 
 /** HEAD without following redirects; resolves to {status, location}. */
-function head(url) {
+/** Run `fn` up to `attempts` times with a growing pause; network hiccups must not kill startup. */
+async function withRetry(fn, attempts = 3, delayMs = 1000) {
+  for (let i = 1; ; i++) {
+    try { return await fn(); } catch (e) {
+      if (i >= attempts) throw e;
+      log(`${e.message}; retrying (${i}/${attempts - 1}) ...`);
+      await new Promise((r) => setTimeout(r, delayMs * i));
+    }
+  }
+}
+
+function headOnce(url) {
   return new Promise((resolve, reject) => {
     const req = https.request(url, { method: "HEAD", timeout: 15000 }, (res) => {
       res.resume();
       resolve({ status: res.statusCode, location: res.headers.location });
     });
-    req.on("timeout", () => req.destroy(new Error("timeout")));
+    req.on("timeout", () => req.destroy(new Error(`timeout contacting ${new URL(url).host}`)));
     req.on("error", reject);
     req.end();
   });
+}
+
+function head(url) {
+  return withRetry(() => headOnce(url));
 }
 
 async function exists(url) {
@@ -160,7 +175,8 @@ async function resolveLatest(channel) {
 
 function downloadTo(url, file, redirects = 6) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    // `timeout` is an idle timeout: a stalled transfer fails instead of hanging forever.
+    const req = https.get(url, { timeout: 60000 }, (res) => {
       if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location && redirects > 0) {
         res.resume();
         return resolve(downloadTo(new URL(res.headers.location, url).toString(), file, redirects - 1));
@@ -174,7 +190,9 @@ function downloadTo(url, file, redirects = 6) {
       out.on("finish", () => out.close(resolve));
       out.on("error", reject);
       res.on("error", reject);
-    }).on("error", reject);
+    });
+    req.on("timeout", () => req.destroy(new Error(`download stalled from ${new URL(url).host}`)));
+    req.on("error", reject);
   });
 }
 
@@ -361,7 +379,7 @@ async function ensureTool4d(opts) {
   fs.rmSync(tmp, { recursive: true, force: true });
   fs.mkdirSync(tmp, { recursive: true });
   const archive = path.join(tmp, process.platform === "linux" ? "tool4d.deb" : "tool4d.tar.xz");
-  await downloadTo(url, archive);
+  await withRetry(() => downloadTo(url, archive), 2, 3000);
   log("extracting ...");
   const stage = path.join(tmp, "x");
   extract(archive, stage);
@@ -485,6 +503,6 @@ if (require.main === module) {
 } else {
   module.exports = {
     parseArgs, releaseFolder, urlFor, platformSuffix, resolveExplicit,
-    findBinary, readAr, untar, extract, systemTar,
+    findBinary, readAr, untar, extract, systemTar, withRetry,
   };
 }

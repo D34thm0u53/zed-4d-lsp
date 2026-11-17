@@ -180,7 +180,19 @@ test("extract: .deb with data.tar.gz", (t) => {
   fs.writeFileSync(deb, makeAr({ "debian-binary": Buffer.from("2.0\n"), "data.tar.gz": zlib.gzipSync(tar) }));
   const out = path.join(dir, "out");
   bridge.extract(deb, out);
-  assert.equal(bridge.findBinary(out, 6), path.join(out, "opt", "tool4d", "tool4d"));
+  // A .deb carries the Linux binary, so check the file itself (findBinary looks for tool4d.exe on Windows).
+  assert.equal(fs.readFileSync(path.join(out, "opt", "tool4d", "tool4d"), "utf8"), "bin");
+});
+
+test("withRetry retries transient failures, then gives up with the last error", async () => {
+  let calls = 0;
+  const ok = await bridge.withRetry(async () => { if (++calls < 3) throw new Error("flaky"); return "done"; }, 3, 1);
+  assert.equal(ok, "done");
+  assert.equal(calls, 3);
+
+  calls = 0;
+  await assert.rejects(bridge.withRetry(async () => { calls++; throw new Error("down"); }, 2, 1), /down/);
+  assert.equal(calls, 2);
 });
 
 test("extract: .tar.xz via the system tar, with spaces (and a drive letter on Windows) in the paths", (t) => {
